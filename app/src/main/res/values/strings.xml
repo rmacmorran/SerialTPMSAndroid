@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TPMS Monitor</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_assign_sensors">Assign Sensors</string>
+    <string name="action_reconnect">Reconnect</string>
+    
+    <!-- Main Activity -->
+    <string name="status_initializing">Initializing TPMS Monitor...</string>
+    <string name="status_connected">USB Serial Connected</string>
+    <string name="status_disconnected">USB Serial Disconnected</string>
+    <string name="vehicle_section">VEHICLE</string>
+    <string name="trailer_section">TRAILER</string>
+    
+    <!-- Sensor Assignment Activity -->
+    <string name="assign_sensors_title">Assign Sensors</string>
+    <string name="instruction_no_sensors">No active sensors detected. Make sure your TPMS receiver is connected and sensors are transmitting.</string>
+    <string name="instruction_sensors_found">Found %1$d active sensors. Select a sensor and tire position, then tap Assign.</string>
+    <string name="select_sensor">Select Sensor:</string>
+    <string name="select_position">Select Tire Position:</string>
+    <string name="assign_button">Assign Sensor</string>
+    <string name="error_no_sensor_selected">Please select a sensor</string>
+    <string name="error_no_position_selected">Please select a tire position</string>
+    <string name="sensor_assigned">Sensor %1$d assigned to %2$s</string>
+    
+    <!-- Settings Activity -->
+    <string name="settings_title">Settings</string>
+    <string name="target_pressure_label">Target Pressure (PSI):</string>
+    <string name="target_temperature_label">Target Temperature (°F):</string>
+    <string name="pressure_deviation_label">Pressure Deviation (%):</string>
+    <string name="temperature_deviation_label">Temperature Deviation (%):</string>
+    <string name="baud_rate_label">Serial Baud Rate</string>
+    <string name="baud_rate_help">Select the baud rate for serial communication. Try 19200 first, then 9600 if no data is received.</string>
+    <string name="speech_enabled_label">Enable Text-to-Speech</string>
+    <string name="save_button">Save Settings</string>
+    <string name="test_speech_button">Test Speech</string>
+    <string name="settings_saved">Settings saved successfully</string>
+    
+    <!-- Tire Positions -->
+    <string name="position_vehicle_front_left">Vehicle Front Left</string>
+    <string name="position_vehicle_front_right">Vehicle Front Right</string>
+    <string name="position_vehicle_rear_left">Vehicle Rear Left</string>
+    <string name="position_vehicle_rear_right">Vehicle Rear Right</string>
+    <string name="position_trailer_front_left">Trailer Front Left</string>
+    <string name="position_trailer_front_right">Trailer Front Right</string>
+    <string name="position_trailer_rear_left">Trailer Rear Left</string>
+    <string name="position_trailer_rear_right">Trailer Rear Right</string>
+    
+    <!-- Sensor Status -->
+    <string name="status_dormant">Dormant (no pressure)</string>
+    <string name="status_normal">Normal</string>
+    <string name="status_low_pressure">Low pressure</string>
+    <string name="status_high_pressure">High pressure</string>
+    <string name="status_very_high_pressure">Very high pressure!</string>
+    <string name="status_cold_temperature">Cold</string>
+    <string name="status_hot_temperature">Hot</string>
+    <string name="status_overheating">Overheating!</string>
+    <string name="status_no_signal">No signal</string>
+    <string name="no_sensor">No Sensor</string>
+    
+    <!-- Error Messages -->
+    <string name="error_serial_connection">Serial connection error: %1$s</string>
+    <string name="error_usb_no_devices">No USB serial devices found</string>
+    <string name="error_usb_no_permission">No permission for USB device</string>
+    <string name="error_usb_open_failed">Failed to open USB device</string>
+    <string name="error_invalid_numbers">Please enter valid numbers for all fields</string>
+    <string name="error_pressure_range">Target pressure must be between 10 and 100 PSI</string>
+    <string name="error_temperature_range">Target temperature must be between 0 and 150°F</string>
+    <string name="error_pressure_deviation_range">Pressure deviation must be between 1% and 50%</string>
+    <string name="error_temperature_deviation_range">Temperature deviation must be between 1% and 50%</string>
+    
+    <!-- Notifications -->
+    <string name="notification_title">TPMS Monitor</string>
+    <string name="notification_text">Monitoring tire sensors</string>
+</resources>

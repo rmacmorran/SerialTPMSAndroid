@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    
+    <item
+        android:id="@+id/action_assign_sensors"
+        android:title="@string/action_assign_sensors"
+        android:icon="@drawable/ic_sensors"
+        app:showAsAction="ifRoom" />
+    
+    <item
+        android:id="@+id/action_settings"
+        android:title="@string/action_settings"
+        android:icon="@drawable/ic_settings"
+        app:showAsAction="ifRoom" />
+    
+    <item
+        android:id="@+id/action_reconnect"
+        android:title="@string/action_reconnect"
+        android:icon="@drawable/ic_refresh"
+        app:showAsAction="never" />
+</menu>

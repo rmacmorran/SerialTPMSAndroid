@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- USB device filters for common FTDI/USB-Serial devices -->
+    <usb-device vendor-id="1027" product-id="24577" />  <!-- FTDI FT232R -->
+    <usb-device vendor-id="1027" product-id="24596" />  <!-- FTDI FT232H -->
+    <usb-device class="2" />  <!-- CDC-ACM devices -->
+    <usb-device vendor-id="9025" />  <!-- Arduino/generic USB-Serial -->
+    <usb-device vendor-id="10755" />  <!-- CH340/CH341 USB-Serial -->
+</resources>
