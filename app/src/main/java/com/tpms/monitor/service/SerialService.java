@@ -5,6 +5,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -30,18 +32,24 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 
 /**
- * Background service to handle serial communication with USB TPMS receiver
+ * Enhanced background service to handle TPMS communication via USB or Bluetooth
+ * Supports both USB serial and Bluetooth Serial Profile (SPP)
  * Based on the Python script protocol: configurable baud rate, 8-N-1
  */
-public class SerialService extends Service implements SerialInputOutputManager.Listener {
+public class SerialService extends Service implements SerialInputOutputManager.Listener, BluetoothSerialConnection.DataListener {
     private static final String TAG = "SerialService";
     private static final String CHANNEL_ID = "TPMS_SERVICE";
     private static final int NOTIFICATION_ID = 1;
     private static final String PREFS_NAME = "TPMSPrefs";
+    
+    // Connection types
+    public static final String CONNECTION_USB = "USB";
+    public static final String CONNECTION_BLUETOOTH = "Bluetooth";
     
     // Serial configuration based on Python script
     private static final int DEFAULT_BAUD_RATE = 9600;
@@ -55,14 +63,24 @@ public class SerialService extends Service implements SerialInputOutputManager.L
     private static final byte HEADER_BYTE_2 = (byte) 0xAA;
     private static final byte LENGTH_BYTE = 0x08;
     
+    // USB connection
     private UsbSerialPort serialPort;
     private SerialInputOutputManager serialIOManager;
+    
+    // Bluetooth connection
+    private BluetoothSerialConnection bluetoothConnection;
+    private BluetoothAdapter bluetoothAdapter;
+    
+    // Common components
     private final ConcurrentHashMap<Integer, TPMSSensor> sensors = new ConcurrentHashMap<>();
     private ServiceCallback callback;
     private int currentBaudRate = DEFAULT_BAUD_RATE;
+    private String connectionType = CONNECTION_USB; // Default to USB
+    private String bluetoothDeviceAddress = "";
+    private boolean isConnected = false;
     
     // Packet buffer for incomplete packets
-    private byte[] packetBuffer = new byte[PACKET_LENGTH * 4]; // Buffer for multiple packets
+    private byte[] packetBuffer = new byte[PACKET_LENGTH * 4];
     private int bufferPosition = 0;
     
     public interface ServiceCallback {
@@ -89,18 +107,21 @@ public class SerialService extends Service implements SerialInputOutputManager.L
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        loadBaudRateFromSettings();
-        Log.d(TAG, "SerialService created with baud rate: " + currentBaudRate);
+        loadSettings();
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        bluetoothConnection = new BluetoothSerialConnection();
+        bluetoothConnection.setDataListener(this);
+        Log.d(TAG, "SerialService created - Type: " + connectionType + ", Baud: " + currentBaudRate);
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startForeground(NOTIFICATION_ID, createNotification());
         
-        // Try to connect to USB serial device
-        connectToUSBDevice();
+        // Connect based on configured type
+        connect();
         
-        return START_STICKY; // Restart if killed
+        return START_STICKY;
     }
     
     @Override
@@ -110,9 +131,11 @@ public class SerialService extends Service implements SerialInputOutputManager.L
         Log.d(TAG, "SerialService destroyed");
     }
     
-    private void loadBaudRateFromSettings() {
+    private void loadSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         currentBaudRate = prefs.getInt("baud_rate", DEFAULT_BAUD_RATE);
+        connectionType = prefs.getString("connection_type", CONNECTION_USB);
+        bluetoothDeviceAddress = prefs.getString("bluetooth_device_address", "");
     }
     
     private void createNotificationChannel() {
@@ -134,16 +157,56 @@ public class SerialService extends Service implements SerialInputOutputManager.L
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         
+        String connectionInfo = connectionType.equals(CONNECTION_USB) ? 
+            "USB at " + currentBaudRate + " baud" : 
+            "Bluetooth SPP";
+            
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("TPMS Monitor")
-            .setContentText("Monitoring tire sensors at " + currentBaudRate + " baud")
+            .setContentText("Monitoring via " + connectionInfo)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build();
     }
     
-    private void connectToUSBDevice() {
+    public void connect() {
+        if (connectionType.equals(CONNECTION_BLUETOOTH)) {
+            connectToBluetooth();
+        } else {
+            connectToUSB();
+        }
+    }
+    
+    private void connectToBluetooth() {
+        if (bluetoothDeviceAddress.isEmpty()) {
+            Log.e(TAG, "No Bluetooth device address configured");
+            if (callback != null) {
+                callback.onSerialError("No Bluetooth device selected in settings");
+            }
+            return;
+        }
+        
+        if (!bluetoothConnection.isBluetoothAvailable()) {
+            Log.e(TAG, "Bluetooth not available or not enabled");
+            if (callback != null) {
+                callback.onSerialError("Bluetooth not available or disabled");
+            }
+            return;
+        }
+        
+        try {
+            bluetoothConnection.connect(bluetoothDeviceAddress);
+            Log.i(TAG, "Attempting Bluetooth connection to: " + bluetoothDeviceAddress);
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting Bluetooth connection", e);
+            if (callback != null) {
+                callback.onSerialError("Bluetooth connection failed: " + e.getMessage());
+            }
+        }
+    }
+    
+    private void connectToUSB() {
         UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
         List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
         
@@ -155,7 +218,6 @@ public class SerialService extends Service implements SerialInputOutputManager.L
             return;
         }
         
-        // Use the first available device
         UsbSerialDriver driver = availableDrivers.get(0);
         UsbDevice device = driver.getDevice();
         
@@ -176,17 +238,18 @@ public class SerialService extends Service implements SerialInputOutputManager.L
             return;
         }
         
-        serialPort = driver.getPorts().get(0); // Use first port
+        serialPort = driver.getPorts().get(0);
         
         try {
             serialPort.open(connection);
             serialPort.setParameters(currentBaudRate, DATA_BITS, STOP_BITS, PARITY);
             
-            // Create and start the I/O manager
             serialIOManager = new SerialInputOutputManager(serialPort, this);
             Executors.newSingleThreadExecutor().submit(serialIOManager);
             
+            isConnected = true;
             Log.i(TAG, "Connected to USB serial device: " + device.getDeviceName() + " at " + currentBaudRate + " baud");
+            
             if (callback != null) {
                 callback.onSerialConnected();
             }
@@ -200,6 +263,9 @@ public class SerialService extends Service implements SerialInputOutputManager.L
     }
     
     public void disconnect() {
+        isConnected = false;
+        
+        // Disconnect USB
         if (serialIOManager != null) {
             serialIOManager.stop();
             serialIOManager = null;
@@ -214,15 +280,72 @@ public class SerialService extends Service implements SerialInputOutputManager.L
             serialPort = null;
         }
         
+        // Disconnect Bluetooth
+        if (bluetoothConnection != null) {
+            bluetoothConnection.disconnect();
+        }
+        
         if (callback != null) {
             callback.onSerialDisconnected();
         }
         
-        Log.i(TAG, "Serial connection closed");
+        Log.i(TAG, "All connections closed");
+    }
+    
+    // USB SerialInputOutputManager.Listener implementation
+    @Override
+    public void onNewData(byte[] data) {
+        processIncomingData(data);
     }
     
     @Override
-    public void onNewData(byte[] data) {
+    public void onRunError(Exception e) {
+        Log.e(TAG, "USB Serial I/O error", e);
+        if (callback != null) {
+            callback.onSerialError("USB error: " + e.getMessage());
+        }
+        
+        // Try to reconnect after a delay
+        Executors.newSingleThreadScheduledExecutor().schedule(() -> {
+            Log.i(TAG, "Attempting to reconnect USB...");
+            connectToUSB();
+        }, 5, java.util.concurrent.TimeUnit.SECONDS);
+    }
+    
+    // Bluetooth DataListener implementation
+    @Override
+    public void onDataReceived(byte[] data) {
+        processIncomingData(data);
+    }
+    
+    @Override
+    public void onConnected() {
+        isConnected = true;
+        Log.i(TAG, "Bluetooth connected successfully");
+        if (callback != null) {
+            callback.onSerialConnected();
+        }
+    }
+    
+    @Override
+    public void onDisconnected() {
+        isConnected = false;
+        Log.i(TAG, "Bluetooth disconnected");
+        if (callback != null) {
+            callback.onSerialDisconnected();
+        }
+    }
+    
+    @Override
+    public void onError(String error) {
+        Log.e(TAG, "Bluetooth error: " + error);
+        if (callback != null) {
+            callback.onSerialError("Bluetooth error: " + error);
+        }
+    }
+    
+    // Common data processing for both USB and Bluetooth
+    private void processIncomingData(byte[] data) {
         // Add new data to buffer
         for (byte b : data) {
             packetBuffer[bufferPosition++] = b;
@@ -305,20 +428,6 @@ public class SerialService extends Service implements SerialInputOutputManager.L
         }
     }
     
-    @Override
-    public void onRunError(Exception e) {
-        Log.e(TAG, "Serial I/O error", e);
-        if (callback != null) {
-            callback.onSerialError("Serial I/O error: " + e.getMessage());
-        }
-        
-        // Try to reconnect after a delay
-        Executors.newSingleThreadScheduledExecutor().schedule(() -> {
-            Log.i(TAG, "Attempting to reconnect...");
-            connectToUSBDevice();
-        }, 5, java.util.concurrent.TimeUnit.SECONDS);
-    }
-    
     // Public methods for MainActivity
     public void setCallback(ServiceCallback callback) {
         this.callback = callback;
@@ -333,16 +442,44 @@ public class SerialService extends Service implements SerialInputOutputManager.L
     }
     
     public boolean isConnected() {
-        return serialPort != null && serialPort.isOpen();
+        return isConnected && (
+            (connectionType.equals(CONNECTION_USB) && serialPort != null && serialPort.isOpen()) ||
+            (connectionType.equals(CONNECTION_BLUETOOTH) && bluetoothConnection != null && bluetoothConnection.isConnected())
+        );
     }
     
     public void reconnect() {
         disconnect();
-        loadBaudRateFromSettings(); // Reload baud rate in case it changed
-        connectToUSBDevice();
+        loadSettings(); // Reload all settings in case they changed
+        connect();
     }
     
     public int getCurrentBaudRate() {
         return currentBaudRate;
+    }
+    
+    public String getConnectionType() {
+        return connectionType;
+    }
+    
+    public String getConnectionInfo() {
+        if (connectionType.equals(CONNECTION_BLUETOOTH)) {
+            if (bluetoothConnection != null && bluetoothConnection.isConnected()) {
+                return "Bluetooth: " + bluetoothConnection.getDeviceName();
+            } else {
+                return "Bluetooth (not connected)";
+            }
+        } else {
+            return "USB at " + currentBaudRate + " baud";
+        }
+    }
+    
+    // Bluetooth helper methods
+    public Set<BluetoothDevice> getPairedBluetoothDevices() {
+        return bluetoothConnection != null ? bluetoothConnection.getPairedDevices() : null;
+    }
+    
+    public boolean isBluetoothAvailable() {
+        return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
     }
 }

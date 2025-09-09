@@ -7,8 +7,12 @@
     
     <!-- Main Activity -->
     <string name="status_initializing">Initializing TPMS Monitor...</string>
-    <string name="status_connected">USB Serial Connected</string>
-    <string name="status_disconnected">USB Serial Disconnected</string>
+    <string name="status_connected">Serial Connected</string>
+    <string name="status_disconnected">Serial Disconnected</string>
+    <string name="status_usb_connected">USB Serial Connected</string>
+    <string name="status_usb_disconnected">USB Serial Disconnected</string>
+    <string name="status_bluetooth_connected">Bluetooth Serial Connected</string>
+    <string name="status_bluetooth_disconnected">Bluetooth Serial Disconnected</string>
     <string name="vehicle_section">VEHICLE</string>
     <string name="trailer_section">TRAILER</string>
     
@@ -29,6 +33,8 @@
     <string name="target_temperature_label">Target Temperature (°F):</string>
     <string name="pressure_deviation_label">Pressure Deviation (%):</string>
     <string name="temperature_deviation_label">Temperature Deviation (%):</string>
+    <string name="connection_type_label">Connection Type</string>
+    <string name="bluetooth_device_label">Bluetooth Device</string>
     <string name="baud_rate_label">Serial Baud Rate</string>
     <string name="baud_rate_help">Select the baud rate for serial communication. Try 19200 first, then 9600 if no data is received.</string>
     <string name="speech_enabled_label">Enable Text-to-Speech</string>
