@@ -2,6 +2,8 @@
 
 An Android application for monitoring Tire Pressure Monitoring System (TPMS) sensors via USB serial communication.
 
+THIS IS A PROOF OF CONCEPT. It WORKS, but there may be incorrect assumptions in the code and documentation. One thing I still don't understand about these USB serial receivers is why they continue sending packets for sensors that are completely offline (battery removed). It's not just annoying but DANGEROUS to keep reporting the same temperature and pressure that was last reported by a sensor as though that's still the case. Your tire could be flat and on fire and you would think everything was fine! I haven't figured out how to identify this situation. Maybe the USB serial receiver can be queried over serial to get more details. Or maybe I'm missing some indicator in the data that would let me know a sensor is offline.  The only workaround I can think of for this is to throw the USB serial receiver in the trash, and replace it with a CC1101 module and implement custom decoding. (like RTL_433 does or the flipper zero code in my other repo -- also borrowed from the rtl_433 implementation)
+
 ## Features
 
 - **Real-time TPMS monitoring** via USB serial connection
